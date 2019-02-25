@@ -1,7 +1,7 @@
 """This forms the core of the pytest plugin."""
 
 import pytest
-import testing.postgresql
+from pgtest.pgtest import PGTest
 
 from pytest_pgsql import database
 from pytest_pgsql import ext
@@ -9,46 +9,44 @@ from pytest_pgsql import ext
 
 def pytest_addoption(parser):
     """Add configuration options for pytest_pgsql."""
-    parser.addoption(
-        '--pg-extensions', action='store', default='',
-        help="A comma-separated list of PostgreSQL extensions to install at "
-             "the beginning of the session for use by all tests. Example: "
-             "--pg-extensions=uuid-ossp,pg_tgrm,pgcrypto")
+    parser.addini(
+        name='pg_ctl',
+        help='Location for pg_ctl executable. Example: /usr/lib/postgresql/9.6/bin/pg_ctl',
+        default='/usr/lib/postgresql/9.6/bin/pg_ctl'
+    )
 
     parser.addoption(
-        '--pg-work-mem', type=int, default=32,
-        help='Set the value of the `work_mem` setting, in megabytes. '
-             '`pytest_pgsql` defaults to 32. Adjusting this up or down can '
-             'help performance; see the Postgres documentation for more details.')
+        '--pg-ctl',
+        action='store',
+        metavar='path',
+        dest='pg_ctl',
+        help='Location for pg_ctl executable. Example: /usr/lib/postgresql/9.6/bin/pg_ctl'
+    )
+
+    parser.addini(
+        name='pg_extensions',
+        help='A comma-separated list of PostgreSQL extensions to install at '
+             'the beginning of the session for use by all tests. Example: '
+             'pg_extensions=uuid-ossp,pg_tgrm,pgcrypto',
+    )
+
+    parser.addoption(
+        '--pg-extensions',
+        action='store',
+        default='',
+        dest='pg_extensions',
+        help='A comma-separated list of PostgreSQL extensions to install at '
+             'the beginning of the session for use by all tests. Example: '
+             '--pg-extensions=uuid-ossp,pg_tgrm,pgcrypto'
+    )
 
 
 @pytest.fixture(scope='session')
 def database_uri(request):
     """A fixture giving the connection URI of the session-wide test database."""
-    # Note: due to the nature of the variable configs, the command line options
-    # must be tested manually.
-
-    work_mem = request.config.getoption('--pg-work-mem')
-    if work_mem < 0:    # pragma: no cover
-        pytest.exit('ERROR: --pg-work-mem value must be >= 0. Got: %d' % work_mem)
-        return
-    elif work_mem == 0:  # pragma: no cover
-        # Disable memory tweak and use the server default.
-        work_mem_setting = ''
-    else:
-        # User wants to change the working memory setting.
-        work_mem_setting = '-c work_mem=%dMB ' % work_mem
-
-    # pylint: disable=bad-continuation,deprecated-method
-    with testing.postgresql.Postgresql(
-        postgres_args='-c TimeZone=UTC '
-                      '-c fsync=off '
-                      '-c synchronous_commit=off '
-                      '-c full_page_writes=off '
-                      + work_mem_setting +
-                      '-c checkpoint_timeout=30min '
-                      '-c bgwriter_delay=10000ms') as pgdb:
-        yield pgdb.url()
+    pg_ctl = request.config.getoption('--pg-ctl') or request.config.getini('pg_ctl')
+    with PGTest(pg_ctl=pg_ctl) as pgdb:
+        yield pgdb.url
 
 
 #: A SQLAlchemy engine shared by the transacted and non-transacted database fixtures.

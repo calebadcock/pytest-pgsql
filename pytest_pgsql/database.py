@@ -49,7 +49,7 @@ def create_database_snapshot(connectable):
 
 
 class PostgreSQLTestDBBase(metaclass=abc.ABCMeta):
-    """Utility to wrap ``testing.postgresql`` and provide extra functionality.
+    """Utility to wrap ``PgTest`` and provide extra functionality.
 
     This is a base class and cannot be instantiated directly. Take a look at the
     main subclasses, `PostgreSQLTestDB` and `TransactedPostgreSQLTestDB`.

@@ -88,7 +88,7 @@ def create_engine_fixture(name, scope='session', **engine_params):
         engine = sqla.create_engine(database_uri, **engine_params)
         quote_id = engine.dialect.preparer(engine.dialect).quote_identifier
 
-        opt_string = request.config.getoption('--pg-extensions')
+        opt_string = request.config.getoption('--pg-extensions') or request.config.getini('pg_extensions')
         to_install = (s.strip() for s in opt_string.split(','))
 
         query_string = ';'.join(
